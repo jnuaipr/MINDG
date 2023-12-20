@@ -160,3 +160,9 @@ cython_debug/
 #.idea/
 
 output/
+src/bak/
+src/data/
+src/model/
+src/result/
+src/runs/
+src/save_folder/
