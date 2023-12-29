@@ -1,28 +1,32 @@
-import torch
+import pandas as pd
+from tdc.multi_pred import DTI
+import os
+import random
+from tqdm import tqdm
 
-import numpy as np
-import scipy.sparse as sp
+def get_unobserved_negative_samples(df):
+    neg_samples = df[df.Y == 1]
+    pos_samples =  df[df.Y == 0]
+    neg_label_num = neg_samples.shape[0]
+    pos_label_num = pos_samples.shape[0]
+    delta = pos_label_num - neg_label_num
+    drug_dict = {}
+    target_dict = {}
+    drug_ids = list(df['Drug_ID'].unique())
+    target_ids = list(df['Target_ID'].unique())
+    for id in tqdm(drug_ids, "drug dict"):
+        drug = df[df.Drug_ID == id].Drug.values[0]
+        drug_dict[id] = drug
+        return
+    for id in tqdm(target_ids, "target dict"):
+        target = df[df.Target_ID == id].Drug.values[0]
+        target_dict[id] = target
+    for _ in tqdm(range(delta), "oversampling"):
+        drug_id, target_id = find_unobserved_pair(df, drug_ids, target_ids)
+        df.loc[len(df.index)] = [drug_id, drug_dict[drug_id], target_id, target_dict[target_id], 0]
+    return df
 
-device = torch.device('cpu')
-
-features = np.eye(7343)
-index_1, index_2 = features.nonzero()
-print(index_1)
-print(index_2)
-values = [1.0]*len(index_1)
-# print(values)
-node_count = features.shape[0]
-print(node_count)
-feature_count = features.shape[1]
-print(feature_count)
-features = sp.coo_matrix((values, (index_1, index_2)),
-                                shape=(node_count, feature_count),
-                                dtype=np.float32)
-print(features)
-out_features = dict()
-ind = np.concatenate([features.row.reshape(-1, 1), features.col.reshape(-1, 1)], axis=1)
-out_features["indices"] = torch.LongTensor(ind.T).to(device)
-out_features["values"] = torch.FloatTensor(features.data).to(device)
-out_features["dimensions"] = features.shape
-
-print(out_features)
+data_dti = DTI(name = "BindingDB_Kd")
+data_dti.binarize(threshold = 30, order = 'descending')
+df = data_dti.get_data()
+get_unobserved_negative_samples(df)

@@ -17,10 +17,7 @@ from tqdm import tqdm
 from tdc.multi_pred import DTI
 from loguru import logger
 
-from DeepPur import get_deeppur_model
-# from descriptastorus.descriptastorus.descriptors.rdkit_fixes import FpDensityMorgan1
-# from examples.distributed.tensor_parallelism.example import TP_AVAILABLE
-from Utils import csv_record,check_dir,save_model
+from Utils import csv_record,check_dir,save_model,class_metrics
 
 class SparseNGCNLayer(torch.nn.Module):
     """
@@ -306,35 +303,6 @@ def features_to_sparse(features, device):
     out_features["dimensions"] = features.shape
     return out_features
 
-def class_metrics(y_label, y_pred):
-    print(y_pred)
-    TP = 0
-    FP = 0
-    TN = 0
-    FN = 0
-    total = len(y_label)
-    for i in range(total):
-        if y_pred[i] == 1 and y_label[i] == 1:
-            TP = TP + 1
-        elif y_pred[i] == 1 and y_label[i] == 0:
-            FP = FP + 1
-        elif y_pred[i] == 0 and y_label[i] == 0:
-            TN = TN + 1
-        elif  y_pred[i] == 0 and y_label[i] == 1:
-            FN = FN + 1
-        else:
-            print(f"error,y_pred:{y_pred[i]},y_label:{y_label[i]}")
-    print(f"TP:{TP},FP:{FP},TN:{TN},FN:{FN}")
-    sensitivity  = TP / (TP + FN)
-    specificity = TN / (FP + TN)
-    recall = sensitivity
-    precision = TP / (TP + FP)
-    accuracy = (TP + TN) / (TP + TN + FP + FN)
-    f1 = 2*TP /(2*TP + FN + FP)
-    return {"sensitivity":sensitivity, "specificity":specificity,
-            "recall":recall, "precision":precision, "accuracy":accuracy, 
-            "f1":f1}
-
 def calc_score(model, data_loader,batch_size, propagation_matrix, features):
     model.eval()
     batch_total = len(data_loader)
@@ -348,9 +316,9 @@ def calc_score(model, data_loader,batch_size, propagation_matrix, features):
         y_pred[i] = output.flatten().detach().numpy()
     y_pred = y_pred.flatten()
     y_label = y_label.flatten()
-    y_max = y_pred.max()
-    y_min = y_pred.min()
-    threshold = (y_max + y_min)/2
+    # y_max = y_pred.max()
+    # y_min = y_pred.min()
+    threshold = 0.5
     y_pred_binary = np.empty(batch_total*batch_size)
     for i in range(len(y_pred_binary)):
         if y_pred[i] >  threshold:
@@ -369,13 +337,29 @@ def calc_score(model, data_loader,batch_size, propagation_matrix, features):
     result['auroc'] = auroc
     return result
 
-def dti_data_preprocess(df):
+def dti_data_preprocess(df, oversampling=True):
     df = df.dropna() # drop NaN rows
     df['Drug_ID'] = df['Drug_ID'].astype(str)
     df['Label'] = 1
-    df['Label'][df.Y <= 30.0] = 0
+    df['Label'][df.Y <= 30.0] = 0  # 30.0
     # print(df[df.Label == 0])
     # print(df[df.Label == 1])
+    neg_samples = df[df.Label == 0]
+    pos_samples =  df[df.Label == 1]
+    neg_label_num = neg_samples.shape[0]
+    pos_label_num = pos_samples.shape[0]
+    # print(neg_samples)
+    # print(pos_samples)
+    logger.info(f'neg samples(0): {neg_label_num}, pos samples(1): {pos_label_num}, {neg_label_num * 100 //(neg_label_num + pos_label_num)}%')
+    if oversampling:
+        logger.info('oversampling')
+        for _ in range(pos_label_num//neg_label_num):
+            df = df.append(neg_samples,ignore_index=True)
+        neg_samples = df[df.Label == 0]
+        pos_samples =  df[df.Label == 1]
+        neg_label_num = neg_samples.shape[0]
+        pos_label_num = pos_samples.shape[0]
+        logger.info(f'neg samples(0): {neg_label_num}, pos samples(1): {pos_label_num}, {neg_label_num * 100 //(neg_label_num + pos_label_num)}%')
     return df
 
 def train(name, device=torch.device('cpu')):
@@ -468,6 +452,7 @@ def train(name, device=torch.device('cpu')):
     t_total = time.time()
     logger.info('Start Training...')
     for epoch in range(epochs):
+        model.train()
         t = time.time()
         batch_total = len(train_loader)
         y_pred_train = np.empty([batch_total,batch_size])
@@ -478,9 +463,13 @@ def train(name, device=torch.device('cpu')):
             model.train()
             optimizer.zero_grad()
             label = label.to(device)
+            # logger.info(f'pairs:{pairs}')
+            # logger.info(f'propagation_matrix:{propagation_matrix}')
+            # logger.info(f'features:{features}')
             prediction, _ = model(propagation_matrix, features, pairs)
             loss = torch.nn.functional.binary_cross_entropy_with_logits(prediction.squeeze(), label.float())
-
+            # logger.info(f"prediction.squeeze():{prediction.squeeze()}")
+            # logger.info(f'label.float():{label.float()}')
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()
@@ -491,6 +480,8 @@ def train(name, device=torch.device('cpu')):
             y_pred_train[i] =  prediction.detach().flatten().numpy()
         y_label_train = y_label_train.flatten()
         y_pred_train = y_pred_train.flatten()
+        logger.info(f"y_label_train:{y_label_train}")
+        logger.info(f"y_pred_train:{y_pred_train}")
         logger.info('Epoch: ' + str(epoch + 1) + '/' + str(epochs) + ' Iteration: ' + str(i + 1) + '/' +
                         str(len(train_loader)) + ' Training loss: ' + str(loss.cpu().detach().numpy()))
         roc_train = roc_auc_score(y_label_train, y_pred_train)
@@ -510,12 +501,12 @@ def train(name, device=torch.device('cpu')):
             if no_improvement == early_stopping:
                 break
 
-        logger.info('epoch: {:04d}'.format(epoch + 1),
-                'loss_train: {:.4f}'.format(loss.item()),
-                'auroc_train: {:.4f}'.format(roc_train),
-                'auroc_val: {:.4f}'.format(roc_val),
-                'auprc_val: {:.4f}'.format(prc_val),
-                'f1_val: {:.4f}'.format(f1_val),
+        logger.info('epoch: {:04d}, '.format(epoch + 1)+
+                'loss_train: {:.4f}, '.format(loss.item())+
+                'auroc_train: {:.4f}, '.format(roc_train)+
+                'auroc_val: {:.4f}, '.format(roc_val)+
+                'auprc_val: {:.4f}, '.format(prc_val)+
+                'f1_val: {:.4f}, '.format(f1_val)+
                 'time: {:.4f}s'.format(time.time() - t))
 
     logger.info("Optimization Finished!")
@@ -533,4 +524,8 @@ def train(name, device=torch.device('cpu')):
 
 
 if __name__ == '__main__':
-    train('BindingDB_Kd')
+    # train('BindingDB_Kd')
+    # train('BindingDB_IC50')
+    # train('BindingDB_Ki')
+    train('DAVIS')
+    # train('KIBA')
