@@ -38,7 +38,7 @@ class MINDG(nn.Module):
         super().__init__()
         self.view1_model = hdn_model
         self.view2_model = hoagcn_model
-        self.alpha = alpha
+        self.alpha = nn.Parameter(torch.tensor(alpha))
         self.propagation_matrix = propagation_matrix
         self.features = features
         self.sigmoid = nn.Sigmoid()
@@ -102,10 +102,10 @@ def calc_score(model, data_loader,batch_size):
         threshold = 0.5 #get_threshold(y_label, y_pred)  
         y_pred_binary = np.empty(batch_total*batch_size)
         for i in range(len(y_pred_binary)):
-            if y_pred[i] >  threshold:
-                y_pred_binary[i] = pos_label
-            else:
+            if y_pred[i] >  threshold:  # 
                 y_pred_binary[i] = neg_label
+            else:
+                y_pred_binary[i] = pos_label
         auprc = average_precision_score(y_label, y_pred)
         auroc = roc_auc_score(y_label, y_pred)
         logger.info(f'y_label: {y_label}')
@@ -127,7 +127,7 @@ def sample_stat(df):
     neg_label_num = neg_samples.shape[0]
     pos_label_num = pos_samples.shape[0]
     logger.info(f'neg/pos:{neg_label_num}/{pos_label_num}, neg:{neg_label_num * 100 //(neg_label_num + pos_label_num)}%, pos:{pos_label_num * 100 //(neg_label_num + pos_label_num)}%')
-    return neg_label_num, pos_label_num, (neg_label_num - pos_label_num)
+    return neg_label_num, pos_label_num
 
 def find_unobserved_pair(df, drug_ids, target_ids):
     while(1):
@@ -167,14 +167,20 @@ def get_unobserved_negative_samples(df):
     sample_stat(df)
     return df
 
-def df_data_preprocess(df, oversampling=True):
+def df_data_preprocess(df, oversampling=False, undersampling=True):
     df = df.dropna() # drop NaN rows
     df['Drug_ID'] = df['Drug_ID'].astype(str)
     df = df.rename(columns={"Y": "Label"})
-    sample_stat(df)
+    neg_label_num, pos_label_num = sample_stat(df)
     if oversampling:
         logger.info('oversampling')
         df = get_unobserved_negative_samples(df)
+    if undersampling:
+        logger.info('undersampling')
+        neg_samples = df[df.Label == neg_label][:pos_label_num]
+        pos_samples = df[df.Label == pos_label]
+        df = pos_samples.append(neg_samples, ignore_index=True)
+    sample_stat(df)
     return df
 
 def df_data_split(df,frac=[0.7, 0.1, 0.2]):
@@ -214,9 +220,9 @@ def dti_df_process(df):
 
 def run(name, phase="train"):
     batch_size = 32
-    epochs = 90
-    learning_rate = 1e-2
-    lr_step_size = 30
+    epochs = 10 # 5 10 20
+    learning_rate = 5e-4
+    lr_step_size = 10
     early_stopping = 10
     device = torch.device('cpu')
     
@@ -237,10 +243,17 @@ def run(name, phase="train"):
     
     # generate ID map
     data_dti = DTI(name = name)
-    if name in ["Davi","BindingDB_Kd", "BindingDB_IC50", "BindingDB_Ki"]:
-        data_dti.binarize(threshold = 30, order = 'descending')
+    if name in "DAVIS":
+        data_dti.convert_to_log(form = 'binding')
+        data_dti.binarize(threshold = 7, order = 'descending')
+    elif name == "BindingDB_Kd":
+        data_dti.convert_to_log(form = 'binding')
+        data_dti.binarize(threshold = 7.6, order = 'descending')
     elif name == "KIBA":
-        data_dti.binarize(threshold = 9, order = 'descending')
+        data_dti.binarize(threshold = 12.1, order = 'descending')
+    else:
+        logger.error(f"dataset {name} is not supported")
+        return
     df = data_dti.get_data()
     df = df_data_preprocess(df)
     logger.info(f"{name}: \n{df.head(5)}")
@@ -363,8 +376,8 @@ def run(name, phase="train"):
 
 if __name__ == '__main__':
     # run('DAVIS')
-    run('KIBA')
-    # run('BindingDB_Kd')
+    run('BindingDB_Kd')
+    # run('KIBA')
     # run('BindingDB_IC50')
     # run('BindingDB_Ki')
     
