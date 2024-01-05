@@ -220,7 +220,7 @@ def dti_df_process(df):
 
 def run(name, phase="train"):
     batch_size = 32
-    epochs = 10 # 5 10 20
+    epochs = 5# 5 10 20
     learning_rate = 5e-4
     lr_step_size = 10
     early_stopping = 10
@@ -245,10 +245,10 @@ def run(name, phase="train"):
     data_dti = DTI(name = name)
     if name in "DAVIS":
         data_dti.convert_to_log(form = 'binding')
-        data_dti.binarize(threshold = 7, order = 'descending')
+        data_dti.binarize(threshold = 7, order = 'descending') # 7
     elif name == "BindingDB_Kd":
         data_dti.convert_to_log(form = 'binding')
-        data_dti.binarize(threshold = 7.6, order = 'descending')
+        data_dti.binarize(threshold = 7.6, order = 'descending') #7.6
     elif name == "KIBA":
         data_dti.binarize(threshold = 12.1, order = 'descending')
     else:
@@ -314,7 +314,8 @@ def run(name, phase="train"):
     mindg_model = MINDG(hdn_model, hoagcn_model, propagation_matrix, features)
     if phase=='train' or not os.path.exists(model_path+f"mindg_{name}_epoch{epochs}.pt"):
         optimizer = torch.optim.Adam(mindg_model.parameters(), lr = learning_rate)
-        scheduler = lr_scheduler.StepLR(optimizer, step_size=lr_step_size, gamma=0.1)
+        scheduler = lr_scheduler.
+        (optimizer, step_size=lr_step_size, gamma=0.1)
         logger.info('Start Training...')
         t_total = time.time()
         for epoch in range(epochs):
@@ -375,8 +376,8 @@ def run(name, phase="train"):
 
 
 if __name__ == '__main__':
-    # run('DAVIS')
-    run('BindingDB_Kd')
+    run('DAVIS')
+    # run('BindingDB_Kd')
     # run('KIBA')
     # run('BindingDB_IC50')
     # run('BindingDB_Ki')
