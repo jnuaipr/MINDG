@@ -99,7 +99,7 @@ def calc_score(model, data_loader,batch_size):
             y_pred[i] = pred.flatten().detach().numpy()
         y_pred = y_pred.flatten()
         y_label = y_label.flatten()
-        threshold = 0.5 #get_threshold(y_label, y_pred)  
+        threshold = 0.5 #get_threshold(y_label, y_pred)  #0.5
         y_pred_binary = np.empty(batch_total*batch_size)
         for i in range(len(y_pred_binary)):
             if y_pred[i] >  threshold:  # 
@@ -174,7 +174,10 @@ def df_data_preprocess(df, oversampling=False, undersampling=True):
     neg_label_num, pos_label_num = sample_stat(df)
     if oversampling:
         logger.info('oversampling')
-        df = get_unobserved_negative_samples(df)
+        pos_samples = df[df.Label == pos_label]
+        for _ in range(1):
+            df = df.append(pos_samples,ignore_index=True)
+        # df = get_unobserved_negative_samples(df)
     if undersampling:
         logger.info('undersampling')
         neg_samples = df[df.Label == neg_label][:pos_label_num]
@@ -218,18 +221,16 @@ def dti_df_process(df):
     df = utils.encode_protein(df, target_encoding, column_name='Seq_Target')
     return df
 
-def run(name, phase="train"):
+def run(name, phase="train",batch_size=32,epochs=5,learning_rate=5e-4,lr_step_size=10,early_stopping=10,device=torch.device('cpu'),seed_id=10):
     batch_size = 32
     epochs = 5# 5 10 20
     learning_rate = 5e-4
     lr_step_size = 10
-    early_stopping = 10
     device = torch.device('cpu')
     
-    setup_seed(10)
+    setup_seed(seed_id)
     
     base_path = "/home/yang/sda/github/MINDG/"
-    dataset_path = base_path+ f"output/dataset/"
     model_path = base_path+ f"output/model/"
     now = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     root_path = base_path+f'output/{name}/'+now +'/'
@@ -314,8 +315,7 @@ def run(name, phase="train"):
     mindg_model = MINDG(hdn_model, hoagcn_model, propagation_matrix, features)
     if phase=='train' or not os.path.exists(model_path+f"mindg_{name}_epoch{epochs}.pt"):
         optimizer = torch.optim.Adam(mindg_model.parameters(), lr = learning_rate)
-        scheduler = lr_scheduler.
-        (optimizer, step_size=lr_step_size, gamma=0.1)
+        scheduler = lr_scheduler.StepLR(optimizer, step_size=lr_step_size, gamma=0.1)
         logger.info('Start Training...')
         t_total = time.time()
         for epoch in range(epochs):
