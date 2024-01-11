@@ -31,7 +31,7 @@ loguru                  0.7.2
 >
 > **Davis** Dataset can be found in http://staff.cs.utu.fi/~aatapa/data/DrugTarget/.
 
-The BingDB and DAVIS datasets are automatically downloaded from [TDC](https://tdcommons.ai/multi_pred_tasks/dti/) by Main.py
+The BingDB and DAVIS datasets are automatically downloaded from [TDC](https://tdcommons.ai/multi_pred_tasks/dti/) by Main.py. If you want some raw csv samples, please click [BindingDB](./doc/dataset/BindingDB_Kd.csv), [DAVIS](./doc/dataset/DAVIS.csv) to download.
 
 
 ### Train and Test
@@ -83,7 +83,7 @@ start testing
 ```shell
 python Main.py
 ```
-If you would like to obtain pretrained model, please email [yang hailong](mailto:yanghailong@stu.jiangnan.edu.cn).
+There are two pre-trained models([mindg_BindingDB_Kd_epoch10.pt](./doc/model/mindg_BindingDB_Kd_epoch10.pt), [mindg_DAVIS_epoch5.pt](./doc/model/mindg_DAVIS_epoch5.pt)) for downloading. If you would like to obtain more pretrained models, please feel free to email [yang hailong](mailto:yanghailong@stu.jiangnan.edu.cn).
 
 #### Acknowledgement
 
