@@ -107,6 +107,7 @@ def calc_score(model, data_loader,batch_size):
             else:
                 y_pred_binary[i] = pos_label
         auprc = average_precision_score(y_label, y_pred)
+        # auprc = my_auprc(y_label, y_pred)
         auroc = roc_auc_score(y_label, y_pred)
         logger.info(f'y_label: {y_label}')
         logger.info(f'y_pred: {y_pred}')
