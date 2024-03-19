@@ -1,7 +1,9 @@
 <h3 align="center">
-<p> MINDG: A Drug-Target Interaction Prediction Method Based on an Integrated Learning Algorithm </h3>
+<p> MINDG: A Drug-Target Interaction Prediction Method Based on an Integrated Learning Algorithm</p> </h3>
 
+This papaer has been received by [Bioinformatics](https://doi.org/10.1093/bioinformatics/btae147) 2024.
 This repository contains script which were used to build and train the MINDG model together with the scripts for evaluating the model's performance.
+
 ### Dependency
 
 ```
@@ -84,6 +86,23 @@ start testing
 python Main.py
 ```
 There are two pre-trained models([mindg_BindingDB_Kd_epoch10.pt](./doc/model/mindg_BindingDB_Kd_epoch10.pt), [mindg_DAVIS_epoch5.pt](./doc/model/mindg_DAVIS_epoch5.pt)) for downloading. If you would like to obtain more pretrained models, please feel free to email [yang hailong](mailto:yanghailong@stu.jiangnan.edu.cn).
+
+### BibTeX
+cite my paper
+```
+@article{10.1093/bioinformatics/btae147,
+    author = {Yang, Hailong and Chen, Yue and Zuo, Yun and Deng, Zhaohong and Pan, Xiaoyong and Shen, Hong-Bin and Choi, Kup-Sze and Yu, Dong-Jun},
+    title = "{MINDG: A Drug-Target Interaction Prediction Method Based on an Integrated Learning Algorithm}",
+    journal = {Bioinformatics},
+    pages = {btae147},
+    year = {2024},
+    month = {03},
+    issn = {1367-4811},
+    doi = {10.1093/bioinformatics/btae147},
+    url = {https://doi.org/10.1093/bioinformatics/btae147},
+    eprint = {https://academic.oup.com/bioinformatics/advance-article-pdf/doi/10.1093/bioinformatics/btae147/56970399/btae147.pdf},
+}
+```
 
 #### Acknowledgement
 
